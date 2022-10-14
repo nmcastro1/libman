@@ -182,3 +182,42 @@ func (app *application) deleteBookHandler(w http.ResponseWriter, r *http.Request
 		app.serverErrorResponse(w, r, err)
 	}
 }
+
+func (app *application) listBooksHandler(w http.ResponseWriter, r *http.Request) {
+	var input struct {
+		Title 		string
+		Authors 	[]string
+		Publisher 	string
+		Language	string
+		data.Filters
+	}
+
+	v := validator.New()
+	qs := r.URL.Query()
+
+	input.Title = app.readString(qs, "title", "")
+	input.Authors = app.readCSV(qs, "authors", []string{})
+	input.Publisher = app.readString(qs, "publisher", "")
+	input.Language = app.readString(qs, "language", "")
+	
+	input.Filters.Page = app.readInt(qs, "page", 1, v)
+	input.Filters.PageSize = app.readInt(qs, "page_size", 10, v)
+	input.Filters.Sort = app.readString(qs, "sort", "id")
+	input.Filters.SortSafeList = []string{"id", "title", "year", "pages","-id", "-title", "-year", "-pages"}
+
+	if data.ValidateFilters(v, input.Filters); !v.Valid() {
+		app.failedValidationResponse(w, r, v.Errors)
+		return
+	}
+
+	books, err := app.models.Books.GetAll(input.Title, input.Authors, input.Publisher, input.Language, input.Filters)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+
+	err = app.writeJSON(w, http.StatusOK, envelope{"books": books}, nil)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+	}
+} 

@@ -151,3 +151,44 @@ func ValidateBook(v *validator.Validator, book *Book) {
 	
 	v.Check(validator.Unique(book.Authors), "authors", "must not contain duplicate values")
 }
+
+func (b BookModel) GetAll(title string, authors []string, publisher string, language string, filters Filters) ([]*Book, error){
+	query := `
+		SELECT id, created_at, title, authors, year, publisher, language, pages, version
+		FROM books
+		ORDER BY id`
+	
+	rows, err := b.DB.Query(query)
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+	books := []*Book{}
+
+	for rows.Next() {
+		var book Book
+
+		err := rows.Scan(
+			&book.ID,
+			&book.CreatedAt,
+			&book.Title,
+			pq.Array(&book.Authors),
+			&book.Year,
+			&book.Publisher,
+			&book.Language,
+			&book.Pages,
+			&book.Version,
+		)
+		if err != nil {
+			return nil, err
+		}
+		books = append(books, &book)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return books, nil
+}
